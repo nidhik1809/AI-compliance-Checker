@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from enum import Enum
 import PyPDF2
 import json
+from groq import Groq
 
 load_dotenv()
 
@@ -29,7 +30,7 @@ def document_type(file):
         for page in reader.pages:
             text += page.extract_text()
             
-    client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+    client = genai.Client(api_key=os.getenv("GEMINI_API_KEY_2"))
     # print(os.getenv("GEMINI_API_KEY"))
     prompt=f"""
         Tell me what type of document is this
@@ -51,20 +52,35 @@ def document_type(file):
         ]
 
     """
-    response = client.models.generate_content(
-        model ="gemini-2.5-flash", contents=prompt,
-        # config={
-        #     "response_mime_type":"application/json",
-        #     "response_schema": list[FindDocumentType],
-        # }
-        config=types.GenerateContentConfig(
-                thinking_config=types.ThinkingConfig(thinking_budget=0),  # Disables thinking
+    try:
+        response = client.models.generate_content(
+            model="gemini-2.5-flash", 
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                thinking_config=types.ThinkingConfig(thinking_budget=0),
                 response_mime_type="application/json",
                 response_schema=list[FindDocumentType],
             ),
         )
-    json_object = json.loads(response.text)
-    # print(json_object[0]['document_type'])
+        json_object = json.loads(response.text)
+        
+    except Exception as e:
+        # Fallback: call Groq if Gemini fails
+        print("Gemini error:", e, "-- Switching to Groq AI")
+        try:
+            groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+            groq_response = groq_client.chat.completions.create(
+                messages=[{"role": "user", "content": prompt}],
+                model="llama-3.1-8b-instant",  # Updated model name
+                response_format={"type": "json_object"}  # Ensure JSON response
+            )
+            groq_content = groq_response.choices[0].message.content
+            json_object = json.loads(groq_content)
+        except Exception as groq_error:
+            print("Groq also failed:", groq_error)
+            # Final fallback
+            return "NoOne"
+    
     return json_object[0]['document_type']
 
 

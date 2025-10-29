@@ -1,12 +1,19 @@
 import smtplib
 import requests
 from email.mime.text import MIMEText
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+pswd = os.getenv("pswd")
+email1 = os.getenv("email1")
+email2 = os.getenv("email2")
 
 def send_notification(subject, notification):
     try:
-        sender = ""
-        password = ""   # Put your app password here
-        receiver = ""
+        sender = email1
+        password = pswd  # Put your app password here
+        receiver = email2
 
         msg = MIMEText(f"{notification}")
         msg["Subject"] = subject
